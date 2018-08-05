@@ -8,16 +8,18 @@
 
 #include "iot_import.h"
 #include "iot_export.h"
+#include "iot_export_mqtt.h"
 #include "aos/log.h"
 #include "aos/yloop.h"
 #include "aos/network.h"
 #include <netmgr.h>
 #include <aos/kernel.h>
+#include <k_err.h>
 #include <netmgr.h>
 #include <aos/cli.h>
 #include <aos/cloud.h>
-#include "iot_export_mqtt.h"
-#include "mqtt_instance.h"
+
+#include "soc_init.h"
 
 #ifdef AOS_ATCMD
 #include <atparser.h>
@@ -50,7 +52,33 @@ static int is_subscribed = 0;
 static int sub_counter = 0;
 static int pub_counter = 0;
 #endif
-char msg_pub[128];
+char msg_pub[512];
+static int fd_temp  = -1;
+
+static int sensor_all_open(void)
+{
+    int fd = -1;
+    fd = aos_open(dev_temp_path, O_RDWR);
+    if (fd < 0) {
+        printf("Error: aos_open return %d.\n", fd);
+        return -1;
+    }
+    fd_temp = fd;
+    return 0;
+}
+
+static int get_temp_data(int *x)
+{
+    temperature_data_t temp = {0};
+    ssize_t size = 0;
+    size = aos_read(fd_temp, &temp, sizeof(temp));
+    if (size != sizeof(temp)) {
+        printf("aos_read return error.\n");
+        return -1;
+    }
+    *x = temp.t;
+    return 0;
+}
 
 static void ota_init(void *pclient);
 int mqtt_client_example(void);
@@ -232,7 +260,7 @@ int application_start(int argc, char *argv[])
 #endif
 
     aos_set_log_level(AOS_LL_DEBUG);
-
+    sensor_all_open();
     aos_register_event_filter(EV_WIFI, wifi_service_event, NULL);
 
     netmgr_init();
