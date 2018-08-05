@@ -12,10 +12,10 @@
 #define FIRMWARE_VERSION_MAXLEN     (32)
 
 
-#define PRODUCT_KEY             "a1J8I6ALiJ6"
+#define PRODUCT_KEY             "a17WkTGSkKN"
 #define PRODUCT_SECRET          ""
-#define DEVICE_NAME             "mydevice"
-#define DEVICE_SECRET           "hMOwEPdoHmtqpRYhfDWNSeNpMACbO6vV"
+#define DEVICE_NAME             "temperatureAlarm"
+#define DEVICE_SECRET           "sU591tlZN4AVER61OrwOku82I6cczDgT"
 
 /**
  * @brief   获取设备的`Partner ID`, 仅用于紧密合作伙伴

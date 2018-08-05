@@ -167,10 +167,15 @@ static void mqtt_work(void *parms)
 {
 
     int rc = -1;
-
+    char param[256] = {0};
     if (is_subscribed == 0) {
         /* Subscribe the specific topic */
-        rc = mqtt_subscribe(TOPIC_GET, mqtt_sub_callback, NULL);
+        rc = mqtt_subscribe(ALINK_TOPIC_PROP_SET, mqtt_sub_callback, NULL);
+        if (rc < 0) {
+            // IOT_MQTT_Destroy(&pclient);
+            LOG("IOT_MQTT_Subscribe() failed, rc = %d", rc);
+        }
+        rc = mqtt_subscribe(ALINK_TOPIC_PROP_POSTRSP, mqtt_sub_callback, NULL);
         if (rc < 0) {
             // IOT_MQTT_Destroy(&pclient);
             LOG("IOT_MQTT_Subscribe() failed, rc = %d", rc);
@@ -181,17 +186,20 @@ static void mqtt_work(void *parms)
 #ifndef MQTT_PRESS_TEST
     else {
         /* Generate topic message */
-      /*  int msg_len = snprintf(msg_pub, sizeof(msg_pub), "{\"attr_name\":\"temperature\", \"attr_value\":\"%d\"}", cnt);
+        memset(param, 0, sizeof(param));
+        memset(msg_pub, 0, sizeof(msg_pub));
+        sprintf(param, "{\"Frequency\":%d}",12);
+        int msg_len = sprintf(msg_pub, ALINK_BODY_FORMAT, cnt, ALINK_METHOD_PROP_POST, param);
         if (msg_len < 0) {
             LOG("Error occur! Exit program");
         }
-        rc = mqtt_publish(TOPIC_UPDATE, IOTX_MQTT_QOS1, msg_pub, msg_len);
+        rc = mqtt_publish(ALINK_TOPIC_PROP_POST, IOTX_MQTT_QOS1, msg_pub, msg_len);
         if (rc < 0) {
             LOG("error occur when publish");
         }
-
-        LOG("packet-id=%u, publish topic msg=%s", (uint32_t)rc, msg_pub);
-        */
+        LOG("Alink:\n%s\n",msg_pub);
+        //LOG("packet-id=%u, publish topic msg=%s", (uint32_t)rc, msg_pub);
+        
        LOG("system is running %d\n",cnt);
        app_show_temp();
     }
@@ -333,7 +341,7 @@ int get_led_fre(void)
 
 void write_led_fre(char *p_fre)
 {
-    if(NULL != strstr(p_fre,""))
-     aos_kv_set(FRE_KEY_ADDR,);
+    if(NULL != strstr(p_fre,""));
+    // aos_kv_set(FRE_KEY_ADDR,);
 }
 int read_led_fre(void);
