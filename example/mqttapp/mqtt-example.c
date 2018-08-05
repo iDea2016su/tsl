@@ -43,7 +43,32 @@ typedef struct {
 #define TOPIC_ERROR             "/"PRODUCT_KEY"/"DEVICE_NAME"/update/error"
 #define TOPIC_GET               "/"PRODUCT_KEY"/"DEVICE_NAME"/get"
 
+#define ALINK_BODY_FORMAT         "{\"id\":\"%d\",\"version\":\"1.0\",\"method\":\"%s\",\"params\":%s}"
+#define ALINK_TOPIC_PROP_POST     "/sys/"PRODUCT_KEY"/"DEVICE_NAME"/thing/event/property/post"
+#define ALINK_TOPIC_PROP_POSTRSP  "/sys/"PRODUCT_KEY"/"DEVICE_NAME"/thing/event/property/post_reply"
+#define ALINK_TOPIC_PROP_SET      "/sys/"PRODUCT_KEY"/"DEVICE_NAME"/thing/service/property/set"
+#define ALINK_METHOD_PROP_POST    "thing.event.property.post"
+
+
 #define MSG_LEN_MAX             (2048)
+
+#define FRE_KEY_ADDR  "led_fre"
+#define FRE_BUF_LEN   (64)
+static int  led_fre = -1; 
+
+#define TEMP_KEY_ADDR  "temp_val"
+#define TEMP_BUF_LEN   (64)
+static int  temp_val = -1; 
+
+void set_led_fre(int p_fre);
+int get_led_fre(void);
+void write_led_fre(char *p_fre);
+int read_led_fre(void);
+
+void set_temp_val(int p_fre);
+int get_temp_val(void);
+void write_temp_val(char *p_fre);
+int read_temp_val(void);
 
 int cnt = 0;
 static int is_subscribed = 0;
@@ -64,6 +89,7 @@ static int sensor_all_open(void)
         return -1;
     }
     fd_temp = fd;
+    printf("temp socket  %d\n", fd);
     return 0;
 }
 
@@ -78,6 +104,17 @@ static int get_temp_data(int *x)
     }
     *x = temp.t;
     return 0;
+}
+
+
+static void app_show_temp(void)
+{
+   int temperature = 0;
+   if(get_temp_data(&temperature)<0)
+   {
+       LOG("get data error\n");
+   }
+   LOG("temperature : %d\n",temperature);
 }
 
 static void ota_init(void *pclient);
@@ -144,7 +181,7 @@ static void mqtt_work(void *parms)
 #ifndef MQTT_PRESS_TEST
     else {
         /* Generate topic message */
-        int msg_len = snprintf(msg_pub, sizeof(msg_pub), "{\"attr_name\":\"temperature\", \"attr_value\":\"%d\"}", cnt);
+      /*  int msg_len = snprintf(msg_pub, sizeof(msg_pub), "{\"attr_name\":\"temperature\", \"attr_value\":\"%d\"}", cnt);
         if (msg_len < 0) {
             LOG("Error occur! Exit program");
         }
@@ -154,6 +191,9 @@ static void mqtt_work(void *parms)
         }
 
         LOG("packet-id=%u, publish topic msg=%s", (uint32_t)rc, msg_pub);
+        */
+       LOG("system is running %d\n",cnt);
+       app_show_temp();
     }
     cnt++;
     if (cnt < 200) {
@@ -244,6 +284,8 @@ static void at_uart_configure(uart_dev_t *u)
 }
 #endif
 
+
+
 int application_start(int argc, char *argv[])
 {
 #if AOS_ATCMD
@@ -268,6 +310,8 @@ int application_start(int argc, char *argv[])
 
     aos_cli_register_command(&mqttcmd);
 
+    hal_gpio_output_low(&brd_gpio_table[8]);
+
     aos_loop_run();
     return 0;
 }
@@ -276,3 +320,20 @@ static void ota_init(void *P)
 {
     aos_post_event(EV_SYS, CODE_SYS_ON_START_FOTA, 0u);
 }
+
+void set_led_fre(int p_fre)
+{
+    led_fre = p_fre;
+}
+
+int get_led_fre(void)
+{
+    return led_fre;
+}
+
+void write_led_fre(char *p_fre)
+{
+    if(NULL != strstr(p_fre,""))
+     aos_kv_set(FRE_KEY_ADDR,);
+}
+int read_led_fre(void);

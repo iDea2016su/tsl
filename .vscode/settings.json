@@ -26,6 +26,7 @@
     "files.associations": {
         "yloop.h": "c",
         "iot_export_mqtt.h": "c",
-        "atparser.h": "c"
+        "atparser.h": "c",
+        "sensor_display.h": "c"
     }
 }
