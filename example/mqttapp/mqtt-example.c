@@ -44,32 +44,55 @@ typedef struct {
 #define TOPIC_GET               "/"PRODUCT_KEY"/"DEVICE_NAME"/get"
 
 #define ALINK_BODY_FORMAT         "{\"id\":\"%d\",\"version\":\"1.0\",\"method\":\"%s\",\"params\":%s}"
+
 #define ALINK_TOPIC_PROP_POST     "/sys/"PRODUCT_KEY"/"DEVICE_NAME"/thing/event/property/post"
 #define ALINK_TOPIC_PROP_POSTRSP  "/sys/"PRODUCT_KEY"/"DEVICE_NAME"/thing/event/property/post_reply"
 #define ALINK_TOPIC_PROP_SET      "/sys/"PRODUCT_KEY"/"DEVICE_NAME"/thing/service/property/set"
 #define ALINK_METHOD_PROP_POST    "thing.event.property.post"
+#define ALINK_METHOD_EVENT_POST    "thing.event.Alarm.post"
 
+#define ALINK_TOPIC_SER_SUB      "/sys/"PRODUCT_KEY"/"DEVICE_NAME"/thing/service/ClearAlarm"
+#define ALINK_TOPIC_EVENT_PUB      "/sys/"PRODUCT_KEY"/"DEVICE_NAME"/thing/event/Alarm/post"
 
 #define MSG_LEN_MAX             (2048)
 
 #define FRE_KEY_ADDR  "led_fre"
 #define FRE_BUF_LEN   (64)
-static int  led_fre = -1; 
+static int  led_fre = 2; 
 
 #define TEMP_KEY_ADDR  "temp_val"
 #define TEMP_BUF_LEN   (64)
-static int  temp_val = -1; 
+static int  temp_val = 320; 
+static int  alarm_status = 0; 
+static int led_fre_upload_status =1;
+
+static int alarm_clear = 0;
 
 void set_led_fre(int p_fre);
 int get_led_fre(void);
 void write_led_fre(char *p_fre);
 int read_led_fre(void);
 
-void set_temp_val(int p_fre);
-int get_temp_val(void);
-void write_temp_val(char *p_fre);
-int read_temp_val(void);
 
+static void app_delayed_action(void *arg)
+{
+    static int count =0;
+    int fre_count = get_led_fre();
+    count++;
+    if(count>=(10/fre_count))
+    {
+        if((alarm_status==1)&&(alarm_clear==0))
+        {
+            hal_gpio_output_toggle(&brd_gpio_table[8]);
+        }
+        else
+        {
+            hal_gpio_output_high(&brd_gpio_table[8]);
+        }
+        count = 0;
+    }
+    aos_post_delayed_action(100, app_delayed_action, NULL);
+}
 int cnt = 0;
 static int is_subscribed = 0;
 
@@ -145,24 +168,30 @@ static void mqtt_sub_callback(char *topic, int topic_len, void *payload, int pay
         payload_len);
     LOG("----");
 
-#ifdef MQTT_PRESS_TEST
-    sub_counter++;
-    int rc = mqtt_publish(TOPIC_UPDATE, IOTX_MQTT_QOS1, payload, payload_len);
-    if (rc < 0) {
-        LOG("IOT_MQTT_Publish fail, ret=%d", rc);
-    } else {
-        pub_counter++;
+    if(NULL != strstr(payload,"thing.service.ClearAlarm"))
+    {
+        alarm_clear = 1;
     }
-    LOG("RECV=%d, SEND=%d", sub_counter, pub_counter);
-#endif MQTT_PRESS_TEST
+    if(NULL != strstr(payload,"\"Frequency\":"))
+    {
+        int fre=0;
+        char * result = strstr(payload,"\"Frequency\":");
+        result += strlen("\"Frequency\":");
+        if(*(result+1)=='}')
+        {
+            fre = *result-'0';
+        }
+        else if(*(result+2)=='}')
+        {
+            fre = (*result-'0')*10+(*(result+1)-'0');
+        }
+        printf("Frequency %d\n",fre);
+        set_led_fre(fre);
+        led_fre_upload_status=1;
+    }
+   
 }
 
-
-
-/*
- * Subscribe the topic: IOT_MQTT_Subscribe(pclient, TOPIC_DATA, IOTX_MQTT_QOS1, _demo_message_arrive, NULL);
- * Publish the topic: IOT_MQTT_Publish(pclient, TOPIC_DATA, &topic_msg);
- */
 static void mqtt_work(void *parms)
 {
 
@@ -175,33 +204,70 @@ static void mqtt_work(void *parms)
             // IOT_MQTT_Destroy(&pclient);
             LOG("IOT_MQTT_Subscribe() failed, rc = %d", rc);
         }
-        rc = mqtt_subscribe(ALINK_TOPIC_PROP_POSTRSP, mqtt_sub_callback, NULL);
+       // rc = mqtt_subscribe(ALINK_TOPIC_PROP_POSTRSP, mqtt_sub_callback, NULL);
+       // if (rc < 0) {
+            // IOT_MQTT_Destroy(&pclient);
+         //   LOG("IOT_MQTT_Subscribe() failed, rc = %d", rc);
+       //}
+        rc = mqtt_subscribe(ALINK_TOPIC_SER_SUB, mqtt_sub_callback, NULL);
         if (rc < 0) {
             // IOT_MQTT_Destroy(&pclient);
             LOG("IOT_MQTT_Subscribe() failed, rc = %d", rc);
         }
         is_subscribed = 1;
-        aos_schedule_call(ota_init, NULL);
     }
-#ifndef MQTT_PRESS_TEST
+
     else {
         /* Generate topic message */
         memset(param, 0, sizeof(param));
         memset(msg_pub, 0, sizeof(msg_pub));
-        sprintf(param, "{\"Frequency\":%d}",12);
-        int msg_len = sprintf(msg_pub, ALINK_BODY_FORMAT, cnt, ALINK_METHOD_PROP_POST, param);
-        if (msg_len < 0) {
-            LOG("Error occur! Exit program");
+        int temperature = 0;
+        if(get_temp_data(&temperature)<0)
+        {
+            LOG("get data error\n");
         }
-        rc = mqtt_publish(ALINK_TOPIC_PROP_POST, IOTX_MQTT_QOS1, msg_pub, msg_len);
-        if (rc < 0) {
-            LOG("error occur when publish");
+        LOG("temperature : %d\n",temperature);
+        if(temperature>temp_val)
+        {
+            alarm_status=1;  
+            sprintf(param,"{}");
+            int msg_len = sprintf(msg_pub, ALINK_BODY_FORMAT, cnt, ALINK_METHOD_EVENT_POST, param);
+            if (msg_len < 0) LOG("Error occur! Exit program");
+            rc = mqtt_publish(ALINK_TOPIC_EVENT_PUB, IOTX_MQTT_QOS1, msg_pub, msg_len);
+            if (rc < 0) LOG("error occur when publish");
+        }
+        else
+        {
+            alarm_status=0;
+        }
+        if(alarm_clear==1)
+        {
+            if(temperature<temp_val)
+            {
+                alarm_clear = 0;
+            }
+        }
+        if(led_fre_upload_status==1)
+        {
+            led_fre_upload_status = 0;
+            int fre = get_led_fre();
+            printf("get_led_fre :%d\n",fre);
+            sprintf(param, "{\"Frequency\":%d}",fre);
+            int msg_len = sprintf(msg_pub, ALINK_BODY_FORMAT, cnt, ALINK_METHOD_PROP_POST, param);
+            if (msg_len < 0) LOG("Error occur! Exit program");
+            rc = mqtt_publish(ALINK_TOPIC_PROP_POST, IOTX_MQTT_QOS1, msg_pub, msg_len);
+            if (rc < 0) LOG("error occur when publish");
+        }
+        {
+            float temp = (float)temperature/10.0;
+            sprintf(param, "{\"Temperature\":%f}",temp);
+            int msg_len = sprintf(msg_pub, ALINK_BODY_FORMAT, cnt, ALINK_METHOD_PROP_POST, param);
+            if (msg_len < 0) LOG("Error occur! Exit program");
+            rc = mqtt_publish(ALINK_TOPIC_PROP_POST, IOTX_MQTT_QOS1, msg_pub, msg_len);
+            if (rc < 0) LOG("error occur when publish");
         }
         LOG("Alink:\n%s\n",msg_pub);
-        //LOG("packet-id=%u, publish topic msg=%s", (uint32_t)rc, msg_pub);
-        
-       LOG("system is running %d\n",cnt);
-       app_show_temp();
+        LOG("system is running %d\n",cnt);
     }
     cnt++;
     if (cnt < 200) {
@@ -214,7 +280,6 @@ static void mqtt_work(void *parms)
         is_subscribed = 0;
         cnt = 0;
     }
-#endif
 }
 
 
@@ -318,7 +383,7 @@ int application_start(int argc, char *argv[])
 
     aos_cli_register_command(&mqttcmd);
 
-    hal_gpio_output_low(&brd_gpio_table[8]);
+    aos_post_delayed_action(100, app_delayed_action, NULL);
 
     aos_loop_run();
     return 0;
@@ -339,9 +404,3 @@ int get_led_fre(void)
     return led_fre;
 }
 
-void write_led_fre(char *p_fre)
-{
-    if(NULL != strstr(p_fre,""));
-    // aos_kv_set(FRE_KEY_ADDR,);
-}
-int read_led_fre(void);
