@@ -12,9 +12,9 @@
 #define FIRMWARE_VERSION_MAXLEN     (32)
 
 
-#define PRODUCT_KEY             "a17WkTGSkKN"
+#define PRODUCT_KEY             "a1x6pMlAkXS"
 #define PRODUCT_SECRET          ""
-#define DEVICE_NAME             "temperatureAlarm"
+#define DEVICE_NAME             "test"
 #define DEVICE_SECRET           "sU591tlZN4AVER61OrwOku82I6cczDgT"
 
 /**

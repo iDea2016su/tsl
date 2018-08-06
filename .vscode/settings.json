@@ -27,6 +27,7 @@
         "yloop.h": "c",
         "iot_export_mqtt.h": "c",
         "atparser.h": "c",
-        "sensor_display.h": "c"
+        "sensor_display.h": "c",
+        "soc_init.h": "c"
     }
 }

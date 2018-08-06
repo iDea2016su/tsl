@@ -139,7 +139,7 @@ static void app_show_temp(void)
    }
    LOG("temperature : %d\n",temperature);
 }
-
+static int t_count = 20;
 static void ota_init(void *pclient);
 int mqtt_client_example(void);
 static void wifi_service_event(input_event_t *event, void *priv_data)
@@ -229,12 +229,17 @@ static void mqtt_work(void *parms)
         LOG("temperature : %d\n",temperature);
         if(temperature>temp_val)
         {
-            alarm_status=1;  
-            sprintf(param,"{}");
-            int msg_len = sprintf(msg_pub, ALINK_BODY_FORMAT, cnt, ALINK_METHOD_EVENT_POST, param);
-            if (msg_len < 0) LOG("Error occur! Exit program");
-            rc = mqtt_publish(ALINK_TOPIC_EVENT_PUB, IOTX_MQTT_QOS1, msg_pub, msg_len);
-            if (rc < 0) LOG("error occur when publish");
+            alarm_status=1;
+            if(alarm_clear==0)
+            {
+                float temp = (float)temperature/10.0; 
+                sprintf(param, "{\"Temperature\":%f}",temp);
+                int msg_len = sprintf(msg_pub, ALINK_BODY_FORMAT, cnt, ALINK_METHOD_EVENT_POST, param);
+                if (msg_len < 0) LOG("Error occur! Exit program");
+                rc = mqtt_publish(ALINK_TOPIC_EVENT_PUB, IOTX_MQTT_QOS1, msg_pub, msg_len);
+                if (rc < 0) LOG("error occur when publish");
+                LOG("Alink:\n%s\n",msg_pub);
+            }
         }
         else
         {
@@ -257,16 +262,24 @@ static void mqtt_work(void *parms)
             if (msg_len < 0) LOG("Error occur! Exit program");
             rc = mqtt_publish(ALINK_TOPIC_PROP_POST, IOTX_MQTT_QOS1, msg_pub, msg_len);
             if (rc < 0) LOG("error occur when publish");
+            LOG("Alink:\n%s\n",msg_pub);
         }
         {
-            float temp = (float)temperature/10.0;
-            sprintf(param, "{\"Temperature\":%f}",temp);
-            int msg_len = sprintf(msg_pub, ALINK_BODY_FORMAT, cnt, ALINK_METHOD_PROP_POST, param);
-            if (msg_len < 0) LOG("Error occur! Exit program");
-            rc = mqtt_publish(ALINK_TOPIC_PROP_POST, IOTX_MQTT_QOS1, msg_pub, msg_len);
-            if (rc < 0) LOG("error occur when publish");
+            
+            if(t_count>=20)
+            {
+                t_count=0;
+                float temp = (float)temperature/10.0;
+                sprintf(param, "{\"Temperature\":%f}",temp);
+                int msg_len = sprintf(msg_pub, ALINK_BODY_FORMAT, cnt, ALINK_METHOD_PROP_POST, param);
+                if (msg_len < 0) LOG("Error occur! Exit program");
+                rc = mqtt_publish(ALINK_TOPIC_PROP_POST, IOTX_MQTT_QOS1, msg_pub, msg_len);
+                if (rc < 0) LOG("error occur when publish");
+                LOG("Alink:\n%s\n",msg_pub);
+            }
+            t_count++;
         }
-        LOG("Alink:\n%s\n",msg_pub);
+        
         LOG("system is running %d\n",cnt);
     }
     cnt++;
